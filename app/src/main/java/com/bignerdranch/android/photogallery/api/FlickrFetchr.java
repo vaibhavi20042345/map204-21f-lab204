@@ -1,7 +1,10 @@
 package com.bignerdranch.android.photogallery.api;
 
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.util.Log;
 
+import androidx.annotation.WorkerThread;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 
@@ -9,6 +12,7 @@ import com.bignerdranch.android.photogallery.GalleryItem;
 
 import java.util.List;
 
+import okhttp3.ResponseBody;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
@@ -46,4 +50,17 @@ public class FlickrFetchr {
         });
         return responseLiveData;
     }
+
+    @WorkerThread
+    public Bitmap fetchPhoto(String url) {
+        try {
+            Response<ResponseBody> response = mFlickrApi.fetchUrlBytes(url).execute();
+            Bitmap bitmap = BitmapFactory.decodeStream(response.body().byteStream());
+            Log.i(TAG, "Decoded bitmap from Response");
+            return bitmap;
+        } catch (Exception exception) {
+            Bitmap.Config conf = Bitmap.Config.ARGB_8888; return Bitmap.createBitmap(150, 150, conf);
+        }
+    }
+
 }

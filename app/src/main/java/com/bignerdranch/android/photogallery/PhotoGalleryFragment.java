@@ -1,12 +1,18 @@
 package com.bignerdranch.android.photogallery;
 
+import android.graphics.Bitmap;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
 import android.os.Bundle;
+import android.os.Handler;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.lifecycle.Observer;
 import androidx.lifecycle.ViewModelProviders;
@@ -17,6 +23,8 @@ import java.util.List;
 
 public class PhotoGalleryFragment extends Fragment {
     private RecyclerView mPhotoRecyclerView;
+    private ThumbnailDownloader<PhotoHolder> mThumbnailDownloader;
+
     private static String TAG = "PhotoGalleryFragment";
     private PhotoGalleryViewModel mPhotoGalleryViewModel;
     @Override
@@ -59,6 +67,31 @@ public class PhotoGalleryFragment extends Fragment {
             }
         }); */
         mPhotoGalleryViewModel = ViewModelProviders.of(this).get(PhotoGalleryViewModel.class);
+        setRetainInstance(true);
+        Handler responseHandler = new Handler();
+        mThumbnailDownloader = new ThumbnailDownloader<>(responseHandler);
+        mThumbnailDownloader.setThumbnailDownloadListener(
+                new ThumbnailDownloader.ThumbnailDownloadListener<PhotoHolder>() {
+                    @Override
+                public void onThumbnailDownloaded(PhotoHolder photoHolder,
+                                                  Bitmap bitmap) {
+                    Drawable drawable = new BitmapDrawable(getResources(), bitmap);
+                    photoHolder.bindDrawable(drawable);
+                } }
+        );
+        getLifecycle().addObserver(mThumbnailDownloader.mFragmentLifecycleObserver);
+    }
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        getViewLifecycleOwner().getLifecycle().removeObserver(mThumbnailDownloader.mViewLifecycleObserver);
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        getViewLifecycleOwner().getLifecycle().addObserver(mThumbnailDownloader.mViewLifecycleObserver);
     }
 
     @Override
@@ -77,13 +110,14 @@ public class PhotoGalleryFragment extends Fragment {
     }
 
     private class PhotoHolder extends RecyclerView.ViewHolder {
-        TextView mTitleTextView;
+        private ImageView mItemImageView;
+       // TextView mTitleTextView;
         public PhotoHolder(LayoutInflater inflater, ViewGroup parent) {
             super(inflater.inflate(R.layout.list_item_gallery, parent, false));
-            mTitleTextView = (TextView) itemView.findViewById(R.id.photo_title);
+            mItemImageView = (ImageView) itemView.findViewById(R.id.item_image_view);
         }
-        public void bind(String text) {
-            mTitleTextView.setText(text);
+        public void bindDrawable(Drawable drawable) {
+            mItemImageView.setImageDrawable(drawable);
         }
     }
 
@@ -100,7 +134,9 @@ public class PhotoGalleryFragment extends Fragment {
         @Override
         public void onBindViewHolder(PhotoHolder holder, int position) {
             GalleryItem galleryItem = mGalleryItems.get(position);
-            holder.bind(galleryItem.title);
+            Drawable placeholder = ContextCompat.getDrawable(requireContext(), R.drawable.bill_up_close);
+            holder.bindDrawable(placeholder);
+            mThumbnailDownloader.queueThumbnail(holder, galleryItem.url);
         }
         @Override
         public int getItemCount() {
